@@ -37,7 +37,7 @@ def configSave(filename=configFileName()):
 
 def configLoad(filename=configFileName()):
   global CONFIG
-  if not os.pathexists(filename):
+  if not os.path.exists(filename):
     CONFIG={}
     return False
   fh = open(filename,"r")
