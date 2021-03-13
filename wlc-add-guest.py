@@ -285,7 +285,13 @@ def wlcListGuests():
      print "Error: Script Configuration Issue !"
      return False
   action  = "show netuser summary\n";
-  print wlcExec(host,xuser,xpasw,action)
+  data = wlcExec(host,xuser,xpasw,action)
+  if xpasw in data:
+    print "Error: "
+    print "  Temporary error in SSH communication."
+    print "  Don't worry. Try again."
+  else:
+    print data
   return True
 
 
