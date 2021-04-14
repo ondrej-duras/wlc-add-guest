@@ -7,7 +7,7 @@
 
 ## MANUAL ############################################################# {{{ 1
 
-VERSION = "2021.031301"
+VERSION = "2021.041401"
 MANUAL  = """
 NAME: Add Guest User on WLC
 FILE: wlc-add-guest.py
@@ -104,6 +104,10 @@ VPASW  = ""  # visitor's password -//-
 VDESC  = ""  # visitor's description
 ACTION = ""  # action / activity, taken based on collection of CLI parameters
 
+try: # gives a sence when script becomes compiled
+  __file__
+except:
+  __file__ = "wlc-add-guest.exe"
 
 ####################################################################### }}} 1
 ## CONFIG handling #################################################### {{{ 1
@@ -193,7 +197,7 @@ def pwaAutoIdentity():
     pass
   authbase += socket.gethostname()+"\\"
   authbase += socket.gethostbyname(socket.gethostname()) + "\\"
-  authbase += getpass.getuser()+"\\"
+  #authbase += getpass.getuser()+"\\"
   authbase += str(getmac())
   return authbase
 
@@ -309,19 +313,19 @@ def takeAction():
      if not (VUSER and VPASW):
         print "Error: addGuest: user (-u) and password (-p) must be provided !"
      wlcAddGuest(VUSER,VPASW,VDESC)
-     exit()
+     sys.exit()
 
   # authorizes this script. Makes its own admin account with 
   # the calculated login and password.
   # Access password is not stored anywhere.
   if ACTION == "authorizeScript":
      wlcAuthorize()
-     exit()
+     sys.exit()
 
   # provides an list of valid visitors' accounts
   if ACTION == "listGuests":
      wlcListGuests()
-     exit()
+     sys.exit()
 
 ####################################################################### }}} 1
 ## CLI interface - handling CLI parameters ############################ {{{ 1
@@ -333,7 +337,7 @@ def takeAction():
 def cliParameters():
   global VUSER,VPASW,VDESC,ACTION
   argct = len(sys.argv)
-  if argct < 2: print MANUAL; exit()
+  if argct < 2: print MANUAL; sys.exit()
   argix = 1
   while(argix < argct):
     argx = sys.argv[argix]; argix += 1
