@@ -29,7 +29,7 @@ def wlcCaller(params):
     WLCTOOL=r"c:\wlc\wlc-add-guest.pyc"
   else:
     print "Error !"; return
-  print WLCTOOL
+  print WLCTOOL # for DEBUG purposes only
   stdin,stdout = os.popen4(WLCTOOL + " " + params)
   stdin.close()
   output = stdout.read()
@@ -37,16 +37,17 @@ def wlcCaller(params):
   return output
 
 if __name__ == "__main__":
-  out1 = wlcCaller(" -u Janko.Hrasko -p Hesielko")
-  if not out1:
+  error1 = wlcCaller("-u Janko.Hrasko2 -p Hesielko2")
+  if not error1:
     print "Create - PASS"
   else:
-    print "Create - FAIL %s" % (out1)
-  out2 = wlcCaller("-l")
-  if "Janko.Hrasko" in out2:
+    print "Create - FAIL\nError: %s" % (error1)
+  error2 = wlcCaller("-l")
+  if "Janko.Hrasko2" in error2:
     print "List   - PASS"
   else:
-    print "List   - FAIL"
+    print "List   - FAIL\n Error: %s" % (error2)
 
+# --- end ---
 
 
