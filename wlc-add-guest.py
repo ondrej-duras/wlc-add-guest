@@ -7,7 +7,7 @@
 
 ## MANUAL ############################################################# {{{ 1
 
-VERSION = "2021.041401"
+VERSION = "2021.060301"
 MANUAL  = """
 NAME: Add Guest User on WLC
 FILE: wlc-add-guest.py
@@ -239,10 +239,12 @@ def wlcAuthorize():
   xuser = pwaAutoLogin()
   xpasw = pwaAutoPassword()
   xdesc = pwaAutoDescription() 
-  # config mgmtuser add AUTO12341234 Hello.Hello+ read-write ScriptID12341234-Automat
+  # config mgmtuser add AUTO12341234 Hello.Hello+ read-write srcHOST-srcUSER
   # show mgmtuser
   # config mgmtuser delete AUTO12341234
-  action = "config mgmtuser add %s %s read-write %s\n" % (xuser,xpasw,xdesc)
+  action  = ""
+  action += "config mgmtuser delete %s\n" % (xuser)
+  action += "config mgmtuser add %s %s read-write %s\n" % (xuser,xpasw,xdesc)
   print "Connecting WLC ..."
   wlcExec(host,auser,apasw,action,"y")
   print "Stript registered as %s" % (xuser)
@@ -272,7 +274,9 @@ def wlcAddGuest(vuser,vpasw,vdesc=""):
   if not (host and xuser and xpasw and wlan):
      print "Error: Script Configuration Issue !"
      return False
-  action  = "config netuser add %s %s wlan %s " % (vuser,vpasw,wlan)
+  action  = ""
+  action += "config netuser delete %s\n" % (vuser)
+  action += "config netuser add %s %s wlan %s " % (vuser,vpasw,wlan)
   action += "userType guest lifetime 86400 description %s\n" % (vdesc)
   action += "show netuser summary\n"
   data = wlcExec(host,xuser,xpasw,action)
