@@ -7,7 +7,7 @@
 
 ## MANUAL ############################################################# {{{ 1
 
-VERSION = "2021.060301"
+VERSION = "2021.060402"
 MANUAL  = """
 NAME: Add Guest User on WLC
 FILE: wlc-add-guest.py
@@ -23,7 +23,7 @@ SYNTAX:
   wlc-add-guest.pyc -u <username> -p <password>
   wlc-add-guest.pyc -a
   wlc-add-guest.pyc -l
-  wlc-add-guest.pyc -c
+  wlc-add-guest.pyc -u <username> -c
 
 USAGE:
   wlc-add-guest.py -u Janko.Hrasko -p Zelena_Fazul@
@@ -47,7 +47,7 @@ PARAMETERS:
   -p - guest user password for his WiFi authentication
   -a - launches an script authorization process
   -l - lists valid WiFi guests (not expired yet)
-  -c - shows a configuration file
+  -c - check whether particular username does exist
 
 INSTALL:
   1. download and install python from page listed below
@@ -102,7 +102,7 @@ AUTHCODE_INTERNAL = 536034627567673L # authorization code of the script instance
 VUSER  = ""  # visitor's username given trough CLI
 VPASW  = ""  # visitor's password -//-
 VDESC  = ""  # visitor's description
-ACTION = ""  # action / activity, taken based on collection of CLI parameters
+ACTION = []  # action / activity, taken based on collection of CLI parameters
 
 try: # gives a sence when script becomes compiled
   __file__
@@ -135,7 +135,36 @@ def configLoad(filename=configFileName()):
   CONFIG = json.loads(fh.read())
   fh.close()
   return True
+
+
+def printx(txt):
+  print(txt)
   
+
+####################################################################### }}} 1
+## multiline string handling ########################################## {{{ 1
+
+def txtMatch(pat,txt,empty=0):
+  out=""
+  for line in txt.splitlines():
+    if empty and re.match("^\s*$",line): # includes empty lines (explicit option)
+      out += line+"\n"
+    if re.match(pat,line):   # includes lines matching pattern
+      out += line+"\n"
+  return out
+
+def txtFilter(pat,txt,empty=1):
+  out=""
+  for line in txt.splitlines():
+    if empty and re.match("^\s*$",line): continue # cuts out an empty lines (default option)
+    if re.match(pat,line): continue  # filters out lines matching pattern
+    out += line+"\n"
+  return out
+
+def txtCount(txt):
+  if txt == None: return 0
+  if txt == "": return 0
+  return len(txt.splitlines())
 
 ####################################################################### }}} 1
 ## WLC SSH Sessions ################################################### {{{ 1
@@ -233,7 +262,7 @@ def wlcAuthorize():
   CONFIG["wlan"]  = wlan
   CONFIG["host"]  = host
   configSave()
-  print "Configuration saved."
+  printx("Configuration saved.")
  
   # Preparing technicalities for SSH session 
   xuser = pwaAutoLogin()
@@ -245,17 +274,18 @@ def wlcAuthorize():
   action  = ""
   action += "config mgmtuser delete %s\n" % (xuser)
   action += "config mgmtuser add %s %s read-write %s\n" % (xuser,xpasw,xdesc)
-  print "Connecting WLC ..."
+  printx("Connecting WLC ...")
   wlcExec(host,auser,apasw,action,"y")
-  print "Stript registered as %s" % (xuser)
-  print "Checking Authentication..."
-  data = wlcExec(host,xuser,xpasw,"show mgmtuser\n")
+  printx("Stript registered as %s" % (xuser))
+  printx("Checking Authentication...")
+  data = txtMatch("AUTO",wlcExec(host,xuser,xpasw,"show mgmtuser\n"))
+  printx(data)
   if xuser in data:
-    print "Script has been authorized successfully."
-    return True
+    printx("Script has been authorized successfully.")
+    return (True,data)
   else:
-    print "WARNING: Something wrong has happened."
-    return False
+    printx("WARNING: Something wrong has happened.")
+    return (False,data)
 
 ####################################################################### }}} 1
 ## GUEST handling ##################################################### {{{ 1
@@ -272,35 +302,52 @@ def wlcAddGuest(vuser,vpasw,vdesc=""):
   if not vdesc:
     vdesc = "by" + xuser
   if not (host and xuser and xpasw and wlan):
-     print "Error: Script Configuration Issue !"
-     return False
+     msg="Error: Script Configuration Issue !"
+     printx(msg)
+     return (False,msg)
   action  = ""
   action += "config netuser delete %s\n" % (vuser)
   action += "config netuser add %s %s wlan %s " % (vuser,vpasw,wlan)
   action += "userType guest lifetime 86400 description %s\n" % (vdesc)
   action += "show netuser summary\n"
   data = wlcExec(host,xuser,xpasw,action)
-  return True
+  return (True,data)
+
 
 
 # Lists still valid viritors' accesses
-def wlcListGuests():
+def wlcListGuests(verbose=True):
   configLoad()
   host = CONFIG["host"]
+  wlan = CONFIG["wlan"]
   xuser= pwaAutoLogin()
   xpasw= pwaAutoPassword()
   if not (host and xuser and xpasw):
-     print "Error: Script Configuration Issue !"
+     printx("Error: Script Configuration Issue !")
      return False
   action  = "show netuser summary\n";
   data = wlcExec(host,xuser,xpasw,action)
   if xpasw in data:
-    print "Error: "
-    print "  Temporary error in SSH communication."
-    print "  Don't worry. Try again."
+    printx("Error: ")
+    printx("  Temporary error in SSH communication.")
+    printx("  Don't worry. Try again.")
   else:
-    print data
-  return True
+    if verbose:
+      printx(txtMatch(".*WLAN",data))
+  return (True,data)
+
+
+# Check whether particular user has been really created
+def wlcCheckGuest(vuser):
+  (result,data)=wlcListGuests(False)
+  if not result: return result
+  output=txtMatch("%s\s+WLAN\s+%d" % (vuser,int(CONFIG["wlan"])),data) 
+  if txtCount(output) == 1:
+    printx("+>User found")
+    return True
+  else:
+    printx("!>Error: USER NOT FOUND!")
+    return (False,output)
 
 
 ####################################################################### }}} 1
@@ -312,24 +359,32 @@ def wlcListGuests():
 def takeAction():
   global VUSER,VPASW,VDESC,ACTION
 
-  # adds visitor's access to WiFi
-  if ACTION == "addGuest":
-     if not (VUSER and VPASW):
-        print "Error: addGuest: user (-u) and password (-p) must be provided !"
-     wlcAddGuest(VUSER,VPASW,VDESC)
-     sys.exit()
-
   # authorizes this script. Makes its own admin account with 
   # the calculated login and password.
   # Access password is not stored anywhere.
-  if ACTION == "authorizeScript":
+  if ("authorizeScript" in ACTION):
      wlcAuthorize()
      sys.exit()
 
+  # adds visitor's access to WiFi
+  if (("addUsername" in ACTION) and ("addPassword" in ACTION)):
+     if not (VUSER and VPASW):
+        printx("Error: addGuest: user (-u) and password (-p) must be provided !")
+        sys.exit()
+     wlcAddGuest(VUSER,VPASW,VDESC)
+
+  # check whether an user has been created
+  if ("checkUsername" in ACTION):
+     if not VUSER:
+       printx("Error: user (-u) must be provided !")
+       sys.exit()
+     wlcCheckGuest(VUSER)
+
   # provides an list of valid visitors' accounts
-  if ACTION == "listGuests":
+  if ("listGuests" in ACTION):
      wlcListGuests()
-     sys.exit()
+
+  sys.exit()
 
 ####################################################################### }}} 1
 ## CLI interface - handling CLI parameters ############################ {{{ 1
@@ -341,32 +396,38 @@ def takeAction():
 def cliParameters():
   global VUSER,VPASW,VDESC,ACTION
   argct = len(sys.argv)
-  if argct < 2: print MANUAL; sys.exit()
+  if argct < 2: printx(MANUAL); sys.exit()
   argix = 1
   while(argix < argct):
     argx = sys.argv[argix]; argix += 1
 
     if argx in ("-a","--authorize"):
-       ACTION = "authorizeScript"
+       ACTION.append("authorizeScript")
        continue
 
     if argx in ("-l","--list"):
-       ACTION = "listGuests"
+       ACTION.append("listGuests")
        continue
 
     if argx in ("-u","--user"):
        VUSER = sys.argv[argix]; argix += 1
-       ACTION = "addGuest" 
+       ACTION.append("addUsername")
+       ACTION.append("checkUsername")
        continue
 
     if argx in ("-p","--password"):
        VPASW = sys.argv[argix]; argix += 1
-       ACTION = "addGuest" 
+       ACTION.append("addPassword")
        continue
+
+    if argx in ("-c","--check"):
+       ACTION.append("checkUsername")
+       continue
+
 
     if argx in ("-d","--description"):
        VDESC = sys.argv[argix]; argix += 1
-       ACTION = "addGuest" 
+       ACTION.append("addDescription")
        continue
 
 
