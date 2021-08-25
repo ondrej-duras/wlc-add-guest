@@ -1,4 +1,5 @@
 #!/usr/bin/env python2
+# -*- coding: ascii -*-
 # 20210110, Ing. Ondrej DURAS (dury), Orange Slovensko a.s. ,GPL2
 #=vim color desert
 #=vim high pythonBuiltin ctermfg=darkcyan
@@ -7,7 +8,7 @@
 
 ## MANUAL ############################################################# {{{ 1
 
-VERSION = "2021.082501"
+VERSION = "2021.082502"
 MANUAL  = """
 NAME: Add Guest User on WLC
 FILE: wlc-add-guest.py
@@ -70,6 +71,7 @@ NOTICE:
 SEE ALSO: 
   https://www.python.org/ftp/python/2.7.17/python-2.7.17.msi
   https://the.earth.li/~sgtatham/putty/latest/w32/plink.exe
+  https://github.com/PowerShell/Win32-OpenSSH/releases
   https://www.putty.org/
   https://github.com/ondrej-duras/
 
@@ -107,22 +109,28 @@ DEBUG  = ""   # controlls troubleshooting
 HIREST = []   #. 
 HIREPL = r"%" #.
 
-# Unable to negotiate with 10.28.3.88 port 22: no matching key exchange method found. 
+# Unable to negotiate with port 22: no matching key exchange method found. 
 # Their offer: diffie-hellman-group-exchange-sha1,diffie-hellman-group14-sha1,diffie-hellman-group1-sha1
+SSH_SSH2C = r"ssh.exe -tt -o StrictHostKeyChecking=no -o KexAlgorithms=+diffie-hellman-group1-sha1 -l %s %s"
 SSH_PLINK = r"plink.exe -no-antispoof -batch -ssh -l %s %s"
 SSH_PLNKH = r"plink.exe -no-antispoof -batch -ssh -hostkey <HOSTKEY> -l %s %s"
-SSH_SSH2C = r"ssh.exe -tt -o StrictHostKeyChecking=no -o KexAlgorithms=+diffie-hellman-group1-sha1 -l %s %s"
+SSH_SSH2V = r"ssh.exe -vv -tt -o StrictHostKeyChecking=no -o KexAlgorithms=+diffie-hellman-group1-sha1 -l %s %s"
+SSH_PLNKV = r"plink.exe -v -no-antispoof -batch -ssh -l %s %s"
+SSH_PLKHV = r"plink.exe -v -no-antispoof -batch -ssh -hostkey <HOSTKEY> -l %s %s"
 
 SSH_VARIANT=[ 
-  SSH_SSH2C, # 1
-  SSH_PLINK, # 2
-  SSH_PLNKH, # 3
-  "C:\\WINDOWS\\System32\\OpenSSH\\"+SSH_SSH2C,
-  "C:\\msys64\\usr\\bin\\"+SSH_SSH2C,
-  "C:\\WLC\\"+SSH_SSH2C,
-  "C:\\WLC\\OpenSSH\\"+SSH_SSH2C,
-  "C:\\WLC\\"+SSH_PLINK,
-  "C:\\WLC\\"+SSH_PLNKH
+  SSH_SSH2C, # 1 - OpenSSH found in PATH
+  SSH_PLINK, # 2 - PLINK found in PATH
+  SSH_PLNKH, # 3 - PLINK found in PATH, using particular hostkey
+  SSH_SSH2V, # 4 - OpenSSH within verbose troubleshooting mode
+  SSH_PLNKV, # 5 - PLINK within troubleshooting mode
+  SSH_PLKHV, # 6 - PLINK within troubleshooting mode, using particular hostkey
+  "C:\\WINDOWS\\System32\\OpenSSH\\"+SSH_SSH2C, # 7 - Windows native OpenSSH (LibreTSL based)
+  "C:\\msys64\\usr\\bin\\"+SSH_SSH2C, # 8 - OpenSSH distributed within msys2.org toolchain
+  "C:\\WLC\\"+SSH_SSH2C,    # 9 - specific OpenSSH client
+  "C:\\WLC\\OpenSSH\\"+SSH_SSH2C, # 10 - specific OpenSSH client-2
+  "C:\\WLC\\"+SSH_PLINK, # 11 - specific PuTTY PLINK 
+  "C:\\WLC\\"+SSH_PLNKH  # 12 - specific PuTTY PLINK, using specific hostkey
 ]
 
 
@@ -269,7 +277,9 @@ def wlcExec(host,user,pasw,action,save="N"):
 # byt script to access the controller.
 #
 # PuTTY registry
-# Computer\HKEY_CURRENT_USER\SOFTWARE\SimonTatham\PuTTY\SshHostKeys
+# reg export "\HKEY_CURRENT_USER\SOFTWARE\SimonTatham\PuTTY\SshHostKeys" SSH_KNOWN_HOSTS.txt /y
+# reg export "HKCU\SOFTWARE\SimonTatham\PuTTY\SshHostKeys" SSH_KNOWN_HOSTS.txt /y
+# reg query "HKCU\SOFTWARE\SimonTatham\PuTTY\SshHostKeys"
 
 # Provides an uniqueID of the script
 # if script changes (even a comment within the script), then
